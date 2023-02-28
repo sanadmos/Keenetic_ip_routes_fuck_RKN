@@ -1,7 +1,22 @@
 import re
 import ipaddress
+from ipaddress import IPv4Address, IPv4Network, ip_address, summarize_address_range
 from aggregate_prefixes import aggregate_prefixes
+import json
+import requests
 
+def get_ripe_ip(country_code):
+    url = 'https://stat.ripe.net/data/country-resource-list/data.json?resource=' + country_code
+    ripe_ip = json.loads(requests.get(url, verify=False).content)['data']['resources']['ipv4']
+    networks = []
+    for record in ripe_ip:
+        if record.find('-') > -1:
+            ips = record.split('-')
+            ipaddr = list(summarize_address_range(IPv4Address(ips[0]), IPv4Address(ips[1])))
+        else:
+            ipaddr = [IPv4Network(record)]
+        networks.extend(ipaddr)
+    return networks
 def test_octet (acl_octet, acl_wildcard_octet):
     matches = []
     if (acl_wildcard_octet == 0):
@@ -36,25 +51,18 @@ def wildcard_calculation(network, wildcard):
     out = list(ipaddress.collapse_addresses(ip))
     return out
 
-routes = []
-with open ("list_ip.lst", "r") as s_file:
-    data = s_file.readlines()
-with open ("routes_cli.txt", "w") as d_file:
-    for prefix in data:
+if __name__ == "__main__":
+    country_code = input("Введите код страны: ") or "RU"
+    prefixes = get_ripe_ip(country_code)
+    data = [str(p) for p in prefixes]
+    routes = []
+    with open("routes_cli_aggregate.txt", "w") as file:
         regexp = r'^(?P<ip_address>(?:[0-9]{1,3}\.){3}(?:[0-9]{1,3}))(?:\s+)?(?:\/)?(?:\s+)?(?P<ip_mask>(?:(?:255|254|252|248|240|224|192|128|0)\.){3}(?:255|254|252|248|240|224|192|128|0)|\d{1,2})$'
-        ip_address, ip_mask = re.match(regexp, prefix).groups()
-        ip_object = ipaddress.IPv4Interface(ip_address + "/" + ip_mask)
-        network = ip_object.network.network_address
-        mask = ip_object.netmask
-        #route = f"route ADD {network} MASK {mask} 100.68.0.1\n"
-        route = f"ip route {network} {mask} 100.68.0.1 ISP\n"
-        routes.append(str(ip_object))
-        d_file.write(route)
-
-with open("routes_cli_aggr.txt", "w") as aggr_cli_file:
-    aggr_routes = aggregate_prefixes(routes)
-    for aggr_route in aggr_routes:
-        aggr_cli_file.write("ip route " + str(aggr_route.network_address) + " " + str(aggr_route.netmask) + " 100.68.0.1 ISP\n")
-
-
-# route ADD 157.0.0.0 MASK 255.0.0.0 157.55.80.1
+        routes = []
+        for prefix in data:
+            ip_address, ip_mask = re.match(regexp, prefix).groups()
+            ip_object = ipaddress.IPv4Interface(ip_address + "/" + ip_mask)
+            routes.append(ip_object)
+        aggr_routes = aggregate_prefixes(routes)
+        for aggr_route in aggr_routes:
+            file.write("ip route " + str(aggr_route.network_address) + " " + str(aggr_route.netmask) + " 100.68.0.1 ISP\n")
