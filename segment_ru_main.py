@@ -24,5 +24,4 @@ with open("routes_cli_aggregate.txt", "w") as file:
     routes = [IPv4Network(prefix) for prefix in data]
     aggr_routes = collapse_addresses(routes)
     for aggr_route in aggr_routes:
-        route = ["ip route", str(aggr_route.network_address), str(aggr_route.netmask), "185.155.17.1 ISP\n"]
-        file.write(" ".join(route))
+        file.write(f"ip route {aggr_route.network_address} {aggr_route.netmask} 185.155.17.1 ISP auto\n")
