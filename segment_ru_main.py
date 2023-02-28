@@ -51,18 +51,17 @@ def wildcard_calculation(network, wildcard):
     out = list(ipaddress.collapse_addresses(ip))
     return out
 
-if __name__ == "__main__":
-    country_code = input("Введите код страны: ") or "RU"
-    prefixes = get_ripe_ip(country_code)
-    data = [str(p) for p in prefixes]
+country_code = input("Введите код страны: ") or "RU"
+prefixes = get_ripe_ip(country_code)
+data = [str(p) for p in prefixes]
+routes = []
+with open("routes_cli_aggregate.txt", "w") as file:
+    regexp = r'^(?P<ip_address>(?:[0-9]{1,3}\.){3}(?:[0-9]{1,3}))(?:\s+)?(?:\/)?(?:\s+)?(?P<ip_mask>(?:(?:255|254|252|248|240|224|192|128|0)\.){3}(?:255|254|252|248|240|224|192|128|0)|\d{1,2})$'
     routes = []
-    with open("routes_cli_aggregate.txt", "w") as file:
-        regexp = r'^(?P<ip_address>(?:[0-9]{1,3}\.){3}(?:[0-9]{1,3}))(?:\s+)?(?:\/)?(?:\s+)?(?P<ip_mask>(?:(?:255|254|252|248|240|224|192|128|0)\.){3}(?:255|254|252|248|240|224|192|128|0)|\d{1,2})$'
-        routes = []
-        for prefix in data:
-            ip_address, ip_mask = re.match(regexp, prefix).groups()
-            ip_object = ipaddress.IPv4Interface(ip_address + "/" + ip_mask)
-            routes.append(ip_object)
-        aggr_routes = aggregate_prefixes(routes)
-        for aggr_route in aggr_routes:
-            file.write("ip route " + str(aggr_route.network_address) + " " + str(aggr_route.netmask) + " 100.68.0.1 ISP\n")
+    for prefix in data:
+        ip_address, ip_mask = re.match(regexp, prefix).groups()
+        ip_object = ipaddress.IPv4Interface(ip_address + "/" + ip_mask)
+        routes.append(ip_object)
+    aggr_routes = aggregate_prefixes(routes)
+    for aggr_route in aggr_routes:
+        file.write("ip route " + str(aggr_route.network_address) + " " + str(aggr_route.netmask) + " 100.68.0.1 ISP\n")
